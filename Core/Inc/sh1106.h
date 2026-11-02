@@ -72,4 +72,13 @@ HAL_StatusTypeDef SH1106_Update(I2C_HandleTypeDef *hi2c);
 HAL_StatusTypeDef SH1106_Clear(I2C_HandleTypeDef *hi2c);
 void SH1106_Fill(uint8_t pattern);
 
+void SH1106_WriteChar(uint8_t x, uint8_t page, char c);
+void SH1106_WriteString(uint8_t x, uint8_t page, const char *str);
+
+void SH1106_PrintMeasurements(
+    I2C_HandleTypeDef *hi2c,
+    float temperature,
+    float pressure_pa
+);
+
 #endif /* SH1106_H */

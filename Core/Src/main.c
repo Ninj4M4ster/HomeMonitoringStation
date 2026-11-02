@@ -64,9 +64,9 @@ uint8_t TX_Buffer_2 [] = "dupa2";
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_I2C2_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM7_Init(void);
+static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
 /* USER CODE END PFP */
 
@@ -74,34 +74,29 @@ static void MX_TIM7_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  if (htim == &htim6) {
-    temp_monitoring_flag = true;
-  }
-  if (htim == &htim7) {
-    screen_timer_flag = true;
-  }
+    if (htim->Instance == TIM6)
+    {
+        temp_monitoring_flag = 1;
+    }
+    else if (htim->Instance == TIM7)
+    {
+        screen_timer_flag = 1;
+    }
 }
 
-void MonitorTemperature() {
-  
+void UpdateScreen(void)
+{
+    if (BMP280_ReadMeasurements() != HAL_OK)
+        return;
 
-}
+    float temperature = BMP280_GetTemp();
+    float pressure = BMP280_GetPressure();
 
-void UpdateScreen() {
-  SH1106_Fill(0xFF);  // All pixels on
-  SH1106_Update(&hi2c1);
-
-  HAL_Delay(1000);
-
-  SH1106_Fill(0xAA);  // Alternating pixels
-  SH1106_Update(&hi2c1);
-
-  HAL_Delay(1000);
-
-  SH1106_Fill(0x55);  // Complementary pattern
-  SH1106_Update(&hi2c1);
-
-  HAL_Delay(1000);
+    SH1106_PrintMeasurements(
+        &hi2c1,
+        temperature,
+        pressure
+    );
 }
 /* USER CODE END 0 */
 
@@ -135,15 +130,23 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
-  MX_I2C2_Init();
   MX_TIM6_Init();
   MX_TIM7_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   if (SH1106_Init(&hi2c1) != HAL_OK)
   {
     Error_Handler();
   }
   if (BMP280_Init(&hi2c2) != HAL_OK) {
+    Error_Handler();
+  }
+  if (HAL_TIM_Base_Start_IT(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_Base_Start_IT(&htim7) != HAL_OK)
+  {
     Error_Handler();
   }
   /* USER CODE END 2 */
@@ -159,7 +162,7 @@ int main(void)
   while (1)
   {
     if (temp_monitoring_flag) {
-      MonitorTemperature();
+      BMP280_ReadMeasurements();
       temp_monitoring_flag = false;
     }
     if (screen_timer_flag) {
@@ -238,7 +241,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x00F12981;
+  hi2c1.Init.Timing = 0x10D19CE4;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -286,7 +289,7 @@ static void MX_I2C2_Init(void)
 
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x00F12981;
+  hi2c2.Init.Timing = 0x10D19CE4;
   hi2c2.Init.OwnAddress1 = 0;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
