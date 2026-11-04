@@ -65,7 +65,7 @@
 #define SH1106_VCOM_DESELECT_DEFAULT   0x35U
 
 /* Addressing configuration */
-#define SH1106_COLUMN_OFFSET           0U
+#define SH1106_COLUMN_OFFSET           0x02U
 
 HAL_StatusTypeDef SH1106_Init(I2C_HandleTypeDef *hi2c);
 HAL_StatusTypeDef SH1106_Update(I2C_HandleTypeDef *hi2c);

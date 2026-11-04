@@ -1,2 +1,2 @@
 CompileFlags:
-  CompilationDatabase: build/Debug
+  CompilationDatabase: firmware/stm32/build/Debug
