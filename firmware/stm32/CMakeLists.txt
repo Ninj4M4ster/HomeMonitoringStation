@@ -46,6 +46,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/sh1106.c
     Core/Src/bmp280.c
+    Core/Src/htu31.c
 )
 
 # Add include paths

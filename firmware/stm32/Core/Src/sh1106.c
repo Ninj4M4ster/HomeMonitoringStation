@@ -325,32 +325,43 @@ void SH1106_WriteString(
 
 void SH1106_PrintMeasurements(
     I2C_HandleTypeDef *hi2c,
-    float temperature,
-    float pressure_pa)
+    float pressure_temp,
+    float pressure_pa,
+    float ambient_temp,
+    float humidity)
 {
-    char temp_string[24];
+    char pressure_temp_string[24];
     char pressure_string[24];
+    char ambient_temp_string[24];
+    char humidity_string[24];
 
-    int32_t temp_hundredths =
-        (int32_t)(temperature * 100.0f +
-                  (temperature >= 0 ? 0.5f : -0.5f));
+    // Convert temperatures to hundredths to print two decimal places.
+    int32_t pressure_temp_hundredths =
+        (int32_t)(pressure_temp * 100.0f +
+                  (pressure_temp >= 0 ? 0.5f : -0.5f));
 
-    int32_t temp_abs = temp_hundredths;
+    int32_t ambient_temp_hundredths =
+        (int32_t)(ambient_temp * 100.0f +
+                  (ambient_temp >= 0 ? 0.5f : -0.5f));
 
-    if (temp_abs < 0)
-        temp_abs = -temp_abs;
+    // Format BMP280 temperature.
+    int32_t pressure_temp_abs = pressure_temp_hundredths;
+
+    if (pressure_temp_abs < 0)
+        pressure_temp_abs = -pressure_temp_abs;
 
     snprintf(
-        temp_string,
-        sizeof(temp_string),
-        "TEMP: %s%ld.%02ld C",
-        temp_hundredths < 0 ? "-" : "",
-        (long)(temp_abs / 100),
-        (long)(temp_abs % 100)
+        pressure_temp_string,
+        sizeof(pressure_temp_string),
+        "BMP T: %s%ld.%02ld C",
+        pressure_temp_hundredths < 0 ? "-" : "",
+        (long)(pressure_temp_abs / 100),
+        (long)(pressure_temp_abs % 100)
     );
 
+    // Convert pressure from Pa to hPa.
     uint32_t pressure_hundredths =
-        (uint32_t)(pressure_pa + 0.5f);
+        (uint32_t)(pressure_pa / 100.0f * 100.0f + 0.5f);
 
     snprintf(
         pressure_string,
@@ -360,11 +371,42 @@ void SH1106_PrintMeasurements(
         (unsigned long)(pressure_hundredths % 100)
     );
 
+    // Format HTU31 ambient temperature.
+    int32_t ambient_temp_abs = ambient_temp_hundredths;
+
+    if (ambient_temp_abs < 0)
+        ambient_temp_abs = -ambient_temp_abs;
+
+    snprintf(
+        ambient_temp_string,
+        sizeof(ambient_temp_string),
+        "AMBIENT: %s%ld.%02ld C",
+        ambient_temp_hundredths < 0 ? "-" : "",
+        (long)(ambient_temp_abs / 100),
+        (long)(ambient_temp_abs % 100)
+    );
+
+    // Format relative humidity.
+    uint32_t humidity_hundredths =
+        (uint32_t)(humidity * 100.0f + 0.5f);
+
+    snprintf(
+        humidity_string,
+        sizeof(humidity_string),
+        "HUMIDITY: %lu.%02lu%%",
+        (unsigned long)(humidity_hundredths / 100),
+        (unsigned long)(humidity_hundredths % 100)
+    );
+
+    // Clear framebuffer.
     memset(framebuffer, 0, sizeof(framebuffer));
 
-    SH1106_WriteString(0, 0, "BMP280 SENSOR");
-    SH1106_WriteString(0, 2, temp_string);
-    SH1106_WriteString(0, 4, pressure_string);
+    // Draw all four measurements.
+    SH1106_WriteString(0, 0, pressure_temp_string);
+    SH1106_WriteString(0, 2, pressure_string);
+    SH1106_WriteString(0, 4, ambient_temp_string);
+    SH1106_WriteString(0, 6, humidity_string);
 
+    // Send framebuffer to OLED.
     SH1106_Update(hi2c);
 }

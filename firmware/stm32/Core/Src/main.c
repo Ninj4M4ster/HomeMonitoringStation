@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "sh1106.h"
 #include "bmp280.h"
+#include "htu31.h"
 #include "stm32l4xx_hal_tim.h"
 #include <stdbool.h>
 /* USER CODE END Includes */
@@ -47,17 +48,19 @@
 
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
+I2C_HandleTypeDef hi2c3;
 
 TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim7;
+TIM_HandleTypeDef htim16;
 
 /* USER CODE BEGIN PV */
 // tim6 -> temp monitoring timer
 static volatile bool temp_monitoring_flag = false;
 // tim7 -> screen timer
 static volatile bool screen_timer_flag = false;
-uint8_t TX_Buffer_1 [] = "dupa";
-uint8_t TX_Buffer_2 [] = "dupa2";
+// tim16 -> htu31 reading timer
+static volatile bool htu31_reading_flag = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -67,6 +70,8 @@ static void MX_I2C1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM7_Init(void);
 static void MX_I2C2_Init(void);
+static void MX_I2C3_Init(void);
+static void MX_TIM16_Init(void);
 /* USER CODE BEGIN PFP */
 /* USER CODE END PFP */
 
@@ -74,28 +79,29 @@ static void MX_I2C2_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance == TIM6)
-    {
+    if (htim->Instance == TIM6) {
         temp_monitoring_flag = 1;
-    }
-    else if (htim->Instance == TIM7)
-    {
+    } else if (htim->Instance == TIM7) {
         screen_timer_flag = 1;
+    } else if (htim->Instance == TIM16) {
+        htu31_reading_flag = 1;
     }
 }
 
 void UpdateScreen(void)
 {
-    if (BMP280_ReadMeasurements() != HAL_OK)
-        return;
-
-    float temperature = BMP280_GetTemp();
+    float pressure_temp = BMP280_GetTemp();
     float pressure = BMP280_GetPressure();
+
+    float ambient_temp = HTU31_GetTemp();
+    float humidity = HTU31_GetHumidity();
 
     SH1106_PrintMeasurements(
         &hi2c1,
-        temperature,
-        pressure
+        pressure_temp,
+        pressure,
+        ambient_temp,
+        humidity
     );
 }
 /* USER CODE END 0 */
@@ -133,20 +139,25 @@ int main(void)
   MX_TIM6_Init();
   MX_TIM7_Init();
   MX_I2C2_Init();
+  MX_I2C3_Init();
+  MX_TIM16_Init();
   /* USER CODE BEGIN 2 */
-  if (SH1106_Init(&hi2c1) != HAL_OK)
-  {
+  if (SH1106_Init(&hi2c1) != HAL_OK) {
     Error_Handler();
   }
   if (BMP280_Init(&hi2c2) != HAL_OK) {
     Error_Handler();
   }
-  if (HAL_TIM_Base_Start_IT(&htim6) != HAL_OK)
-  {
+  if (HTU31_Init(&hi2c3) != HAL_OK) {
     Error_Handler();
   }
-  if (HAL_TIM_Base_Start_IT(&htim7) != HAL_OK)
-  {
+  if (HAL_TIM_Base_Start_IT(&htim6) != HAL_OK) {
+    Error_Handler();
+  }
+  if (HAL_TIM_Base_Start_IT(&htim7) != HAL_OK) {
+    Error_Handler();
+  }
+  if (HAL_TIM_Base_Start_IT(&htim16) != HAL_OK) {
     Error_Handler();
   }
   /* USER CODE END 2 */
@@ -164,6 +175,10 @@ int main(void)
     if (temp_monitoring_flag) {
       BMP280_ReadMeasurements();
       temp_monitoring_flag = false;
+    }
+    if (htu31_reading_flag) {
+      HTU31_Read();
+      htu31_reading_flag = false;
     }
     if (screen_timer_flag) {
       UpdateScreen();
@@ -322,6 +337,54 @@ static void MX_I2C2_Init(void)
 }
 
 /**
+  * @brief I2C3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C3_Init(void)
+{
+
+  /* USER CODE BEGIN I2C3_Init 0 */
+
+  /* USER CODE END I2C3_Init 0 */
+
+  /* USER CODE BEGIN I2C3_Init 1 */
+
+  /* USER CODE END I2C3_Init 1 */
+  hi2c3.Instance = I2C3;
+  hi2c3.Init.Timing = 0x10D19CE4;
+  hi2c3.Init.OwnAddress1 = 0;
+  hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c3.Init.OwnAddress2 = 0;
+  hi2c3.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c3.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c3.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c3, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c3, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C3_Init 2 */
+
+  /* USER CODE END I2C3_Init 2 */
+
+}
+
+/**
   * @brief TIM6 Initialization Function
   * @param None
   * @retval None
@@ -341,7 +404,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 1279;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 655;
+  htim6.Init.Period = 62499;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -379,7 +442,7 @@ static void MX_TIM7_Init(void)
   htim7.Instance = TIM7;
   htim7.Init.Prescaler = 159;
   htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim7.Init.Period = 65535;
+  htim7.Init.Period = 49999;
   htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
   {
@@ -394,6 +457,38 @@ static void MX_TIM7_Init(void)
   /* USER CODE BEGIN TIM7_Init 2 */
 
   /* USER CODE END TIM7_Init 2 */
+
+}
+
+/**
+  * @brief TIM16 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM16_Init(void)
+{
+
+  /* USER CODE BEGIN TIM16_Init 0 */
+
+  /* USER CODE END TIM16_Init 0 */
+
+  /* USER CODE BEGIN TIM16_Init 1 */
+
+  /* USER CODE END TIM16_Init 1 */
+  htim16.Instance = TIM16;
+  htim16.Init.Prescaler = 7999;
+  htim16.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim16.Init.Period = 9999;
+  htim16.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim16.Init.RepetitionCounter = 0;
+  htim16.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim16) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM16_Init 2 */
+
+  /* USER CODE END TIM16_Init 2 */
 
 }
 

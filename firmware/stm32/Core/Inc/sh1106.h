@@ -77,8 +77,9 @@ void SH1106_WriteString(uint8_t x, uint8_t page, const char *str);
 
 void SH1106_PrintMeasurements(
     I2C_HandleTypeDef *hi2c,
-    float temperature,
-    float pressure_pa
-);
+    float pressure_temp,
+    float pressure_pa,
+    float ambient_temp,
+    float humidity);
 
 #endif /* SH1106_H */
