@@ -17,4 +17,6 @@ The first prototype uses:
 - a breadboard,
 - jumper wires.
 
-<!-- Add a photo of the prototype here. -->
+![Image of first prototype](images/first_prototype.jpeg)
+
+The second step of development was usage of esp32-c6 to connect the firmware with Apple Home over Matter.
